@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stick Runner</title>
+  <style>
+    body {
+      margin: 0;
+      background: white;
+      font-family: Arial, sans-serif;
+
+      /* CENTER GAME */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    canvas {
+      background: white; /* ✅ NO BORDER ANYMORE */
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="900" height="350"></canvas>
+
+<audio id="bgMusic" loop>
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=chill-ambient-11067.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const music = document.getElementById("bgMusic");
+
+// Player
+let player = {
+  x: 140,
+  y: 300,
+  dy: 0,
+  gravity: 0.7,
+  jumpPower: -13,
+  grounded: true
+};
+
+let obstacles = [];
+let speed = 5;
+let frame = 0;
+let score = 0;
+let bestScore = localStorage.getItem("bestScore") || 0;
+let gameOver = false;
+
+// Controls
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    if (gameOver) location.reload();
+    else jump();
+  }
+});
+document.addEventListener("click", jump);
+
+function jump() {
+  if (!gameOver && player.grounded) {
+    player.dy = player.jumpPower;
+    player.grounded = false;
+  }
+  if (music.paused) music.play();
+}
+
+// Stickman
+function drawStickman(x, y, frameCount) {
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 3;
+
+  let armSwing = Math.sin(frameCount * 0.2) * 8;
+  let legSwing = Math.sin(frameCount * 0.25) * 12;
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(x, y - 55, 9, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(x, y - 46);
+  ctx.lineTo(x, y - 20);
+  ctx.stroke();
+
+  // Arms
+  ctx.beginPath();
+  ctx.moveTo(x, y - 30);
+  ctx.lineTo(x - 18, y - 25 + armSwing);
+  ctx.moveTo(x, y - 30);
+  ctx.lineTo(x + 18, y - 25 - armSwing);
+  ctx.stroke();
+
+  // Legs
+  ctx.beginPath();
+  ctx.moveTo(x, y - 20);
+  ctx.lineTo(x - legSwing, y);
+  ctx.moveTo(x, y - 20);
+  ctx.lineTo(x + legSwing, y);
+  ctx.stroke();
+}
+
+// Game loop
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Ground
+  ctx.beginPath();
+  ctx.moveTo(0, 300);
+  ctx.lineTo(900, 300);
+  ctx.stroke();
+
+  // Physics
+  player.dy += player.gravity;
+  player.y += player.dy;
+
+  if (player.y >= 300) {
+    player.y = 300;
+    player.dy = 0;
+    player.grounded = true;
+  }
+
+  drawStickman(player.x, player.y, frame);
+
+  // Difficulty
+  let level = Math.floor(score / 100);
+  speed = 5 + level * 0.5;
+  let spawnRate = Math.max(40, 90 - level * 3);
+
+  if (frame % spawnRate === 0) {
+    obstacles.push({
+      x: 900,
+      y: 270,
+      width: 20,
+      height: 30
+    });
+  }
+
+  // Obstacles
+  for (let i = 0; i < obstacles.length; i++) {
+    let o = obstacles[i];
+    o.x -= speed;
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(o.x, o.y, o.width, o.height);
+
+    let playerTop = player.y - 55;
+    let playerBottom = player.y;
+    let playerLeft = player.x - 10;
+    let playerRight = player.x + 10;
+
+    if (
+      playerRight > o.x &&
+      playerLeft < o.x + o.width &&
+      playerBottom > o.y &&
+      playerTop < o.y + o.height
+    ) {
+      gameOver = true;
+    }
+  }
+
+  // Score
+  if (!gameOver) score++;
+
+  ctx.fillStyle = "black";
+  ctx.font = "18px Arial";
+  ctx.fillText("Score: " + score, 10, 25);
+  ctx.fillText("Best: " + bestScore, 10, 45);
+  ctx.fillText("Level: " + level, 10, 65);
+
+  // Game Over
+  if (gameOver) {
+    if (score > bestScore) {
+      localStorage.setItem("bestScore", score);
+    }
+    ctx.font = "32px Arial";
+    ctx.fillText("Game Over", 360, 170);
+    ctx.font = "16px Arial";
+    ctx.fillText("Press SPACE to Restart", 340, 200);
+    return;
+  }
+
+  frame++;
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
